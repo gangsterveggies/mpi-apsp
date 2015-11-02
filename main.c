@@ -6,6 +6,7 @@
 #define MASTER 0
 #define SEND_TAG 0
 #define DEBUG 0
+#define TIME_MODE 0
 
 double start, finish;
 int num_Proc, sq_Proc, global_Rank;
@@ -41,6 +42,7 @@ void read_Input()
     for (j = 0; j < nodes; j++)
       if (i != j && global_Matrix[i][j] == 0)
         global_Matrix[i][j] = -1;
+
   for (i = 0; i < nodes; i++)
     global_Matrix[i][i] = 0;
 }
@@ -154,7 +156,6 @@ void local_Multiply(int** mat_A, int** mat_B, int** mat_C, int sz)
   for (i = 0; i < sz; i++)
     for (j = 0; j < sz; j++)
       for (k = 0; k < sz; k++)
-//        mat_C[i][j] = min(mat_C[i][j], min(mat_C[i][k], mat_A[i][k]) + min(mat_C[k][j], mat_B[k][j]));
         if (mat_A[i][k] != -1 && mat_B[k][j] != -1 && mat_C[i][j] != -1)
           mat_C[i][j] = min(mat_C[i][j], mat_A[i][k] + mat_B[k][j]);
         else if (mat_A[i][k] != -1 && mat_B[k][j] != -1)
@@ -177,10 +178,10 @@ void multiply_Matrices(MPI_Datatype matrix_Type)
   tmp[0] = (row - 1 + sq_Proc) % sq_Proc;
   MPI_Cart_rank(collumn_Grid, tmp, &top_Rank);
 
-  int run, run2;
-  for (run2 = 0; run2 < sq_Proc; run2++)
+  int run;
+  for (run = 0; run < sq_Proc; run++)
   {
-    int u = (run2 + row) % sq_Proc;
+    int u = (run + row) % sq_Proc;
     int u_Rank;
     tmp[0] = u;
     MPI_Cart_rank(row_Grid, tmp, &u_Rank);
@@ -196,7 +197,8 @@ void multiply_Matrices(MPI_Datatype matrix_Type)
       local_Multiply(local_Matrix_A, local_Matrix_B, local_Matrix_C, q);
     }
 
-    MPI_Sendrecv_replace(local_Matrix_B[0], 1, matrix_Type, top_Rank, SEND_TAG, bot_Rank, SEND_TAG, collumn_Grid, MPI_STATUS_IGNORE);
+    if (run != sq_Proc - 1)
+      MPI_Sendrecv_replace(local_Matrix_B[0], 1, matrix_Type, top_Rank, SEND_TAG, bot_Rank, SEND_TAG, collumn_Grid, MPI_STATUS_IGNORE);
   }
 
   for (i = 0; i < q; i++)
@@ -211,7 +213,7 @@ void calculate_APSP()
   MPI_Type_commit(&matrix_Type);
 
   int run;
-  for (run = 1; run < nodes; run <<= 1)
+  for (run = 1; run <= nodes; run <<= 1)
     multiply_Matrices(matrix_Type);
 
   MPI_Type_free(&matrix_Type);
@@ -250,6 +252,29 @@ void collect_Results()
     MPI_Send(local_Matrix[0], q * q, MPI_INT, MASTER, SEND_TAG, whole_Grid);
 
   MPI_Type_free(&matrix_Type); 
+}
+
+void sequential_calculate_APSP()
+{
+  int* tmp_Matrix = (int*) malloc(nodes * nodes * sizeof(int));
+  int** cp = (int**) malloc(nodes * sizeof(int*));
+  int i, j, run;
+  for (i = 0; i < nodes; i++)
+    cp[i] = &(tmp_Matrix[i * nodes]);
+
+  for (i = 0; i < nodes; i++)
+    for (j = 0; j < nodes; j++)
+      cp[i][j] = global_Matrix[i][j];
+
+  for (run = 1; run < 2; run++)
+  {
+    local_Multiply(global_Matrix, global_Matrix, cp, nodes);
+              
+    for (i = 0; i < nodes; i++)
+      for (j = 0; j < nodes; j++)
+        global_Matrix[i][j] = cp[i][j];
+
+  }
 }
 
 void print_Result()
@@ -291,27 +316,7 @@ int main(int argc, char *argv[])
   else
   {
     if (global_Rank == MASTER)
-    {
-      int* tmp_Matrix = (int*) malloc(nodes * nodes * sizeof(int));
-      int** cp = (int**) malloc(nodes * sizeof(int*));
-      int i, j, k, run;
-      for (i = 0; i < nodes; i++)
-        cp[i] = &(tmp_Matrix[i * nodes]);
-
-      for (i = 0; i < nodes; i++)
-        for (j = 0; j < nodes; j++)
-          cp[i][j] = global_Matrix[i][j];
-
-      for (run = 1; run < 2; run++)
-      {
-        local_Multiply(global_Matrix, global_Matrix, cp, nodes);
-              
-        for (i = 0; i < nodes; i++)
-          for (j = 0; j < nodes; j++)
-            global_Matrix[i][j] = cp[i][j];
-
-      }
-    }
+      sequential_calculate_APSP();
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -319,7 +324,7 @@ int main(int argc, char *argv[])
 
   print_Result();
 
-  if (global_Rank == 0)
+  if (TIME_MODE && global_Rank == 0)
     printf("Execution time: %0.3lf seconds\n", finish - start);
 
   MPI_Finalize();

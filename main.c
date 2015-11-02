@@ -7,6 +7,7 @@
 #define SEND_TAG 0
 #define DEBUG 0
 
+double start, finish;
 int num_Proc, sq_Proc, global_Rank;
 int nodes, q;
 int **global_Matrix;
@@ -211,10 +212,7 @@ void calculate_APSP()
 
   int run;
   for (run = 1; run < nodes; run <<= 1)
-  {
     multiply_Matrices(matrix_Type);
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
 
   MPI_Type_free(&matrix_Type);
 }
@@ -278,6 +276,9 @@ int main(int argc, char *argv[])
   MPI_Comm_size(MPI_COMM_WORLD, &num_Proc);
   MPI_Comm_rank(MPI_COMM_WORLD, &global_Rank);
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  start = MPI_Wtime();
+
   read_Input();
   setup_Grid();
   distribute_Input();
@@ -313,7 +314,13 @@ int main(int argc, char *argv[])
     }
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  finish = MPI_Wtime();
+
   print_Result();
+
+  if (global_Rank == 0)
+    printf("Execution time: %0.3lf seconds\n", finish - start);
 
   MPI_Finalize();
 

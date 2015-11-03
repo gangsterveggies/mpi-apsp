@@ -5,8 +5,10 @@ CC=mpiCC
 CFLAGS= -w -Wno-write-strings -O3 -Wall -g
 
 SRC =                   \
-	main.cpp		\
-	matrix.cpp
+	main.cpp	\
+	matrix.cpp	\
+	fox.cpp		\
+	floyd.cpp
 
 OBJ =  ${SRC:.cpp=.o}
 

@@ -9,7 +9,7 @@ class Fox
  private:
   static double start, finish;
   static int num_Proc, sq_Proc, global_Rank;
-  static int nodes, q;
+  static int nodes, q, org_Nodes;
   static int **global_Matrix;
   static int **local_Matrix;
   static int **local_Matrix_A;

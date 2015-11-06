@@ -2,7 +2,7 @@
 
 double Fox::start, Fox::finish;
 int Fox::num_Proc, Fox::sq_Proc, Fox::global_Rank;
-int Fox::nodes, Fox::q;
+int Fox::nodes, Fox::q, Fox::org_Nodes;
 int **Fox::global_Matrix;
 int **Fox::local_Matrix;
 int **Fox::local_Matrix_A;
@@ -21,22 +21,37 @@ void Fox::read_Input()
   int i, j;
   scanf("%d", &nodes);
 
+  int tmp = (int)sqrt((double) num_Proc);
+  org_Nodes = nodes;
+
+  if (nodes % tmp != 0)
+  {
+    nodes = (nodes + tmp - 1) / tmp * tmp;
+    fprintf(stderr, "Warning: matrix size not divisible by number of nodes\n");
+    fprintf(stderr, "         filled extra space to fullfil contrain (%d)\n", nodes);
+  }
+
   int* tmp_Matrix = (int*) malloc(nodes * nodes * sizeof(int));
   global_Matrix = (int**) malloc(nodes * sizeof(int*));
   for (i = 0; i < nodes; i++)
     global_Matrix[i] = &(tmp_Matrix[i * nodes]);
 
-  for (i = 0; i < nodes; i++)
-    for (j = 0; j < nodes; j++)
+  for (i = 0; i < org_Nodes; i++)
+    for (j = 0; j < org_Nodes; j++)
       scanf("%d", &global_Matrix[i][j]);
 
-  for (i = 0; i < nodes; i++)
-    for (j = 0; j < nodes; j++)
+  for (i = 0; i < org_Nodes; i++)
+    for (j = 0; j < org_Nodes; j++)
       if (i != j && global_Matrix[i][j] == 0)
         global_Matrix[i][j] = -1;
 
-  for (i = 0; i < nodes; i++)
+  for (i = 0; i < org_Nodes; i++)
     global_Matrix[i][i] = 0;
+
+  for (i = 0; i < nodes; i++)
+    for (j = 0; j < nodes; j++)
+      if (i >= org_Nodes || j >= org_Nodes)
+        global_Matrix[i][j] = -1;
 }
 
 void Fox::setup_Grid()
@@ -251,6 +266,8 @@ void Fox::print_Result()
 {
   if (global_Rank != MASTER)
     return;
+
+  nodes = org_Nodes;
 
   int i, j;
   for (i = 0; i < nodes; i++)

@@ -239,29 +239,6 @@ void Fox::collect_Results()
   MPI_Type_free(&matrix_Type); 
 }
 
-void Fox::sequential_calculate_APSP()
-{
-  int* tmp_Matrix = (int*) malloc(nodes * nodes * sizeof(int));
-  int** cp = (int**) malloc(nodes * sizeof(int*));
-  int i, j, run;
-  for (i = 0; i < nodes; i++)
-    cp[i] = &(tmp_Matrix[i * nodes]);
-
-  for (i = 0; i < nodes; i++)
-    for (j = 0; j < nodes; j++)
-      cp[i][j] = global_Matrix[i][j];
-
-  for (run = 1; run < 2; run++)
-  {
-    Matrix::local_Multiply(global_Matrix, global_Matrix, cp, nodes);
-              
-    for (i = 0; i < nodes; i++)
-      for (j = 0; j < nodes; j++)
-        global_Matrix[i][j] = cp[i][j];
-
-  }
-}
-
 void Fox::print_Result()
 {
   if (global_Rank != MASTER)
@@ -286,6 +263,9 @@ void Fox::APSP(int print_result, int print_time)
 {
   MPI_Comm_size(MPI_COMM_WORLD, &num_Proc);
   MPI_Comm_rank(MPI_COMM_WORLD, &global_Rank);
+
+  if (global_Rank == 0)
+    printf("Running using parallel Fox with %d processes\n", num_Proc);
 
   MPI_Barrier(MPI_COMM_WORLD);
   start = MPI_Wtime();

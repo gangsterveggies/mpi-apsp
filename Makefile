@@ -8,7 +8,9 @@ SRC =                   \
 	main.cpp	\
 	matrix.cpp	\
 	fox.cpp		\
-	floyd.cpp
+	floyd.cpp	\
+	seqfox.cpp	\
+	seqfloyd.cpp
 
 OBJ =  ${SRC:.cpp=.o}
 

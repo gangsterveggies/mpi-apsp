@@ -21,7 +21,6 @@ class Floyd
   static void relax(int &a, int &b, int &c);
   static void calculate_APSP();
   static void collect_Results();
-  static void sequential_calculate_APSP();
   static void print_Result();
 
  public:

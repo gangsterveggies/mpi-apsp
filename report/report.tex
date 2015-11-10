@@ -1,0 +1,100 @@
+%----------------------------------------------------------------------------------------
+%	CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[12pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{natbib}
+\usepackage{amsmath}
+\usepackage{lipsum}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+
+%----------------------------------------------------------------------------------------
+%	INFORMATION
+%----------------------------------------------------------------------------------------
+
+\title{Estudo de paralelismo no problema \textit{All-Pairs Shortest
+    Paths}}
+
+\author{Filipe Figueiredo\footnote{Filipe Figueiredo - 201203559},
+  Pedro Paredes\footnote{Pedro Paredes - 201205725}, DCC - FCUP}
+
+\date{Novembro 2015}
+
+\renewcommand{\tablename}{Tabela}
+\renewcommand{\figurename}{Figura}
+\renewcommand{\refname}{Referências}
+
+\begin{document}
+
+\maketitle
+
+%----------------------------------------------------------------------------------------
+%	SECTION 1
+%----------------------------------------------------------------------------------------
+
+\section{Introdução}
+\label{sec:intro}
+O problema do caminho mais curto (ou \textit{Shortest Path} em inglês)
+é um problema clássico com grande aplicabilidade. O caminho mais curto
+entre dois nós $u$ e $v$ consiste em determinar o caminho com vértice
+inicial $u$ e vértice final $v$, tal que o custo do caminho é o menor
+possível. O custo do caminho num grafo não pesado é determinado pelo
+número de arestas que o caminho contém e num grafo pesado é
+determinado pela soma dos pesos das arestas do caminho.
+
+Historicamente o problema foi estudado usando duas estratégias
+diferentes, para as quais existem vários algoritmos. A primeira,
+chamada de \textit{Single-source shortest path} (ou caminho mais curto
+a partir de um só vértice) tem como objetivo encontrar todos os
+caminhos mais curtos que começam num determinado nó $u$. Já o
+\textit{All-pairs shortest paths} (ou todos os pares de caminhos mais
+curtos) tem como objetivo encontrar os caminhos mais curtos entre
+todos os possíveis pares de nós.
+
+Neste trabalho focamo-nos em usar a segunda estratégia em grafos
+pesados. O objetivo será estudar o paralelismo existente em diferentes
+algoritmos e obter uma implementação eficiente de modo a verificar a
+sua escalabilidade.
+
+O resto do relatório está organizado da seguinte forma. A
+Secção~\ref{sec:ai} descreve em detalhe os algoritmos a estudar e as
+suas versões paralelas. A Secção~\ref{sec:res} apresenta o estudo
+empírico dos algoritmos através de testes com diferentes
+redes. Finalmente, na Secção~\ref{sec:con} é feita uma breve conclusão
+e apresentadas algumas notas finais.
+
+
+%----------------------------------------------------------------------------------------
+%	SECTION 2
+%----------------------------------------------------------------------------------------
+
+\section{Algoritmos e implementação}
+\label{sec:ai}
+
+
+%----------------------------------------------------------------------------------------
+%	SECTION 3
+%----------------------------------------------------------------------------------------
+
+\section{Resultados e discussão}
+\label{sec:res}
+
+%----------------------------------------------------------------------------------------
+%	SECTION 4
+%----------------------------------------------------------------------------------------
+
+\section{Conclusão e notas finais}
+\label{sec:con}
+
+\cite{shimbel1953structural}
+
+\bibliographystyle{plain}
+\bibliography{report}
+
+\end{document}

@@ -73,22 +73,6 @@ void Floyd::distribute_Input()
   }
   else
     MPI_Recv(&(local_Matrix[0][0]), nodes * q, MPI_INT, MASTER, SEND_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-/*  MPI_Barrier(MPI_COMM_WORLD);
-  for (int k = 0; k < num_Proc; k++)
-  {
-    if (k == global_Rank)
-    {
-      for (int i = 0; i < q; i++)
-      {
-        for (int j = 0; j < nodes; j++)
-          printf("%d ", local_Matrix[i][j]);
-        printf("\n");
-      }
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    }*/
 }
 
 void Floyd::relax(int &a, int &b, int &c)
@@ -176,6 +160,9 @@ void Floyd::APSP(int print_result, int print_time)
 {
   MPI_Comm_size(MPI_COMM_WORLD, &num_Proc);
   MPI_Comm_rank(MPI_COMM_WORLD, &global_Rank);
+
+  if (global_Rank == 0)
+    printf("Running using parallel Floyd with %d processes\n", num_Proc);
 
   MPI_Barrier(MPI_COMM_WORLD);
   start = MPI_Wtime();

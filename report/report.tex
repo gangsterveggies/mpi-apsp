@@ -2,7 +2,7 @@
 %	CONFIGURATIONS
 %----------------------------------------------------------------------------------------
 
-\documentclass[12pt,a4paper,oneside]{article}
+\documentclass[10pt,a4paper,oneside]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
@@ -12,6 +12,8 @@
 \usepackage{lipsum}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
 \usepackage[a4paper,left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
 
 %----------------------------------------------------------------------------------------
@@ -29,6 +31,11 @@
 \renewcommand{\tablename}{Tabela}
 \renewcommand{\figurename}{Figura}
 \renewcommand{\refname}{Referências}
+\newcommand{\BigO}[1]{\mathcal{O}(#1)}
+
+\makeatletter
+\renewcommand*{\ALG@name}{Algoritmo}
+\makeatother
 
 \begin{document}
 
@@ -76,7 +83,253 @@ e apresentadas algumas notas finais.
 
 \section{Algoritmos e implementação}
 \label{sec:ai}
+Nesta secção estudaremos dois algoritmos conhecidos para o problema em
+questão assim como uma possível paralelização para cada um. O primeiro
+algoritmo é baseado numa variante de multiplicação de matrizes que é
+aplicada várias vezes à matriz de adjacência do grafo. O segundo,
+conhecido como o algoritmo de \textit{Floyd-Warshall}, usa a
+subestrutura ótima do problema para percorrer e atualizar a matriz de
+adjacência de forma eficiente. O segundo algoritmo tem uma
+complexidade temporal inferior ao primeiro, mas a versão paralela do
+primeiro permite escalar melhor a solução devido a necessitar de menos
+comunicação entre processos.
 
+\subsection{Algoritmo de multiplicação de matrizes sequencial}
+O primeiro algoritmo a considerar é, como já indicado, um algoritmo
+baseado numa variação da multiplicação de matrizes. Esta variação
+passa por substituir as habituais operações de multiplicação e soma
+presentes num algoritmo de multiplicação de matrizes comum por uma
+operação de soma e minimização (escolher o mínimo entre o primeiro e o
+segundo termo) respetivamente.
+
+A correção deste algoritmo está ligada à sua ideia fundamental e pode
+ser justificada argumentando que dado um caminho mais curto ótimo
+entre dois vértices $u$ e $v$ (denotaremos o seu comprimento por
+$d_{uv}$), seja $t$ um qualquer vértice nele contido, então $d_{uv} =
+d_{ut} + d_{tv}$. Este facto é facilmente provado com um argumento de
+maximalidade. Sendo assim, $d_{uv} = \min{\{d_{ut} + d_{tv}, t \in
+  V\}}$, onde $V$ representa o conjunto de vértices do grafo. Esta
+igualdade estabelece o paralelo da variação da multiplicação de
+matrizes mencionada, pois dadas três matrizes $A, B, C$ tais que $A
+\times B = C$, temos que $C_{uv} = \sum{A_{ut} \cdot B_{tv}}, t \in
+       [1, n]$, onde $n$ representa a dimensão da matriz (assumimos
+       que a matriz é quadrada para simplificar).
+
+Para formalizar o algoritmo, denotaremos por $D^k$ a matriz de
+distâncias entre todos os pares de pontos que usam no máximo $k$
+arestas (onde $D^1$ é a matriz de adjacência do grafo, por
+definição). É fácil de ver que $D^a \odot D^b = D^{a + b}$, onde
+$\odot$ é a variação a multiplicação de matrizes vista anteriormente,
+pois usando a igualdade estabelecida no parágrafo anterior, a soma de
+todas as $D^a_{ut}$ com $D^b_{tv}$, para todo o $t$, representam a
+junção de todos os caminhos com no máximo $a$ arestas com todos os
+caminhos com no máximo $b$ arestas, e dada a igualdade definida, isto
+corresponde a todos os caminhos com no máximo $a+b$ arestas.
+
+Agora o objetivo do algoritmo é determinar $D^n$, sendo $n$ o número
+de vértices (e mais uma unidade que o número máximo de arestas num
+caminho mais curto), que pode ser obtido por: $D^n = D^1 \odot \ldots
+\odot D^1$, com $n$ termos. Este valor pode ser obtido usando o
+algoritmo de exponenciação por quadrados, que consiste em observar que
+$D^{2m} = D^m \odot D^m$, e calcular $D^m$ apenas uma vez.
+
+Os parágrafos anteriores estão sumarizados no Algoritmo~\ref{alg:alg1}.
+
+A complexidade deste algoritmo é de $\BigO{|V|^3\log{(|V|)}}$, onde o
+$|V|^3$ advém da multiplicação de matrizes e o fator logarítmico de
+aplicar a exponenciação por quadrados. É de notar que apesar de
+existirem algoritmos de multiplicação de matrizes de complexidade
+inferior a cúbica, todos necessitam de operações de subtrair matrizes,
+sendo aqui a subtração a operação inversa à soma, porém na variação
+aplicada neste algoritmo não existe inverso da operação de minimização
+e por isso esses algoritmos não se aplicam. De facto, o problema de
+determinar se existe um algoritmo subcúbico para o problema de todos
+os pares de caminhos mais curtos continua em aberto.
+
+\begin{algorithm}[t]
+\small
+\caption{O algoritmo por multiplicação de matrizes repetida}
+\renewcommand{\arraystretch}{0.85}
+\textbf{Input:} A matriz de adjacência $A$ de um grafo\\
+\textbf{Resultado:} A matriz de distâncias mais curtas $C$ de um grafo\\
+\renewcommand{\arraystretch}{1.0}
+\label{alg:alg1}
+\begin{algorithmic}[1]
+\State $C \leftarrow $ {\tt new Matrix} \Comment{$C$ inicialmente tem todas as entradas iguais a $\infty$}
+\State $runs \leftarrow 1$
+\While{$runs < |V|$}
+  \ForAll{$u \in V$}
+    \ForAll{$v \in V$}
+      \ForAll{$t \in V$}
+        \State $C_{uv} = \min{(C_{uv}, A_{ut} + A_{tv})}$
+      \EndFor
+    \EndFor
+  \EndFor
+  \State $runs \leftarrow runs \times 2$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Algoritmo de multiplicação de matrizes paralelo}
+Iremos agora descrever uma possível paralelização deste algoritmo
+baseada num algoritmo que paraleliza multiplicação de matrizes
+conhecido por algoritmo de \textit{Fox}. Este algoritmo consiste em
+aplicar uma decomposição da matriz de adjacência original $A$ em
+blocos quadrados $B$ para serem atribuídos a um processo. Um exemplo
+representativo desta decomposição esta esquematizado na
+Tabela~\ref{tbl:tbl1}. Denotaremos as matrizes $B_{ij}$ por blocos e a
+matriz de matrizes $B$ por matriz de blocos. Usaremos a notação $ij$
+para denotar o processo que contém o bloco $B_{ij}$.
+
+Com esta decomposição da matriz, a multiplicação da matriz é também
+decomposta da seguinte forma: $B'_{ij} = \sum_k{B_{ik} \cdot B_{kj}}$,
+ou na variação apresentada na subsecção anterior: $B'_{ij} =
+\min_k{(B_{ik} \odot B_{kj})}$, onde aqui as operações são definidas para
+matrizes (a minimização é elemento a elemento) e $B' = B^2$
+(corresponde à matriz resultado).
+
+Para que a decomposição possa ser efetuada, o número de processos tem
+de ser um quadrado perfeito (para que possam ser distribuídos por uma
+matriz de blocos como mostra a Tabela~\ref{tbl:tbl1}). Denotamos o
+número de processos por $N_p$, definimos $q$ por $q = \sqrt{N_p}$ e
+assumimos que $N_p$ é um quadrado perfeito, então cada bloco $B_{ij}$
+terá dimensões de $\frac{|V|}{q}$ por $\frac{|V|}{q}$. Para que as
+dimensões sejam inteiras é necessário que $|V|$ seja múltiplo de $q$,
+logo na implementação deste algoritmo é feito um \textit{padding} de
+$\infty$ na matriz de adjacência original de modo a que as suas
+dimensões respeitem esta restrição.
+
+Para efetuar o cálculo, a multiplicação a efetuar é coordenada em cada
+linha de blocos da matriz, ou seja, todos os processos $ij$ de uma
+determinada linha $i$ estarão a efetuar a multiplicação do mesma bloco
+$B_{ik}$ com a matriz correspondente da sua coluna. Assim, o algoritmo
+define que inicialmente todos os blocos irão efetuar a multiplicação
+com a matriz do bloco da mesma linha que está contido na diagonal da
+matriz de blocos. De seguida cada processo passa o seu bloco para o
+processo imediatamente a cima na matriz de blocos (os blocos da
+primeira linha passam para os da última linha) e recebe o bloco do
+processo imediatamente a baixo. Este bloco recebido é denotado por
+bloco extra e na iteração seguinte será esse bloco extra a ser enviado
+para o processo imediatamente a cima (ou seja, na iteração inicial o
+bloco extra é o próprio bloco do processo). O bloco extra será agora
+usado na próxima multiplicação, que será feita com o bloco da mesma
+linha que está na posição imediatamente à direita da diagonal (no caso
+do bloco da diagonal estar na última coluna, então usar-se-á o da
+primeira coluna). Este processo é repetido até que todas as
+multiplicações necessárias sejam efetuadas, ou seja, que seja dada uma
+volta completa para cada processo na matriz de blocos.
+
+O método descrito no parágrafo anterior, pelo facto de coordenar as
+multiplicações de blocos, diminui o número de comunicações que são
+precisas de serem efetuadas e permite que sejam feitos {\tt
+  broadcasts} por linha da matriz de blocos em cada iteração. Para
+facilitar estas operações, na implementação em {\tt MPI} são definidos
+um conjunto de comunicadores além do comunicador global: um
+comunicador por linha que aglomera todos os processos em cada
+linha da matriz de blocos, que permite que seja efetuado o {\tt
+  broadcast} em cada iteração; um comunicador por coluna que aglomera
+todos os processos numa coluna da matriz de blocos, que permite
+que seja feita a passagem do bloco extra para o processo
+imediatamente a cima (sendo esta troca mediada por um {\tt sendrecv}).
+
+Os parágrafos anteriores são sumarizados no Algoritmo~\ref{alg:alg1}.
+
+A complexidade deste algoritmo é $\BigO{\frac{\log{(|V|)} (|V|^3 +
+    C_c|V|^2(1 + \log{(N_p)}))}{N_p}}$, onde $C_c$ é uma constante que
+representa o custo de uma comunicação unitária (envio/receção de um
+inteiro). O fator logarítmico advém da exponenciação quadrada, o fator
+de $\frac{|V|^3}{N_p}$ advém de se fazerem $q$ multiplicações de
+matrizes de dimensão $\frac{|V|}{q}$, o fator $\frac{C_c|V|^2}{N_p}$
+advém de se fazerem $q$ {\tt sendrecv} de matrizes de dimensão
+$\frac{|V|}{q}$ e finalmente o fator de
+$\frac{C_c|V|^2\log{(N_p)}}{N_p}$ é análogo ao anterior mas onde é
+feito um {\tt broadcast}.
+
+\begin{table}[t]
+  \centering
+  \caption{Esquema de partição de uma matriz de adjacência $A$ de $6 \times 6$}
+  \label{tbl:tbl1}
+  \begin{tabular}{|c|c|c|}
+    \hline
+    Processo 1 & Processo 2 & Processo 3 \\
+    $B_{1,1} = 
+    \begin{pmatrix}
+      A_{1,1} & A_{1,2} \\
+      A_{2,1} & A_{2,2}
+    \end{pmatrix}$ &
+    $B_{1,2} = 
+    \begin{pmatrix}
+      A_{1,3} & A_{1,4} \\
+      A_{2,3} & A_{2,4}
+    \end{pmatrix}$ &
+    $B_{1,3} = 
+    \begin{pmatrix}
+      A_{1,5} & A_{1,6} \\
+      A_{2,5} & A_{2,6}
+    \end{pmatrix}$ \\
+    \hline
+    Processo 4 & Processo 5 & Processo 6 \\
+    $B_{2,1} = 
+    \begin{pmatrix}
+      A_{3,1} & A_{3,2} \\
+      A_{4,1} & A_{4,2}
+    \end{pmatrix}$ &
+    $B_{2,2} = 
+    \begin{pmatrix}
+      A_{3,3} & A_{3,4} \\
+      A_{4,3} & A_{4,4}
+    \end{pmatrix}$ &
+    $B_{2,3} = 
+    \begin{pmatrix}
+      A_{3,5} & A_{3,6} \\
+      A_{4,5} & A_{4,6}
+    \end{pmatrix}$ \\
+    \hline
+    Processo 7 & Processo 8 & Processo 9 \\
+    $B_{3,1} = 
+    \begin{pmatrix}
+      A_{5,1} & A_{5,2} \\
+      A_{6,1} & A_{6,2}
+    \end{pmatrix}$ &
+    $B_{3,2} = 
+    \begin{pmatrix}
+      A_{5,3} & A_{5,4} \\
+      A_{6,3} & A_{6,4}
+    \end{pmatrix}$ &
+    $B_{3,3} = 
+    \begin{pmatrix}
+      A_{5,5} & A_{5,6} \\
+      A_{6,5} & A_{6,6}
+    \end{pmatrix}$ \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{algorithm}[b]
+\small
+\caption{O algoritmo paralelo por multiplicação de matrizes repetida}
+\renewcommand{\arraystretch}{0.85}
+\textbf{Input:} O bloco $B$ do processo atual\\
+\textbf{Resultado:} A matriz de distâncias mais curtas $B'$ do bloco atual\\
+\renewcommand{\arraystretch}{1.0}
+\label{alg:alg1}
+\begin{algorithmic}[1]
+\State $B' \leftarrow $ {\tt new Matrix} \Comment{$B'$ inicialmente tem todas as entradas iguais a $\infty$}
+\State $B^e \leftarrow B_{rc}$ \Comment{$r$ e $c$ são as linha e coluna do processo atual na matriz de blocos}
+\State $runs \leftarrow 1$
+\While{$runs < |V|$}
+  \For{$i \in [1, q]$}
+    \State $u \leftarrow (r + i) \mod q$
+    \State $B^t \leftarrow$ {\tt broadcast} $(B_{ru}, r)$
+    \State $B' = \min(B', B^e \odot B^t)$
+    \State {\tt sendrecv} $(B^e, (c + 1) \mod q, (c - 1) \mod q)$
+  \EndFor
+  \State $runs \leftarrow runs \times 2$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Algoritmo de \textit{Floyd-Warshall} sequencial}
 
 %----------------------------------------------------------------------------------------
 %	SECTION 3

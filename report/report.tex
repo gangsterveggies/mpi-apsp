@@ -9,6 +9,7 @@
 \usepackage{epstopdf}
 \usepackage{natbib}
 \usepackage{amsmath}
+\usepackage{multirow}
 \usepackage{lipsum}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -232,7 +233,7 @@ todos os processos numa coluna da matriz de blocos, que permite
 que seja feita a passagem do bloco extra para o processo
 imediatamente a cima (sendo esta troca mediada por um {\tt sendrecv}).
 
-Os parágrafos anteriores são sumarizados no Algoritmo~\ref{alg:alg1}.
+Os parágrafos anteriores são sumarizados no Algoritmo~\ref{alg:alg2}.
 
 A complexidade deste algoritmo é $\BigO{\frac{\log{(|V|)} (|V|^3 +
     C_c|V|^2(1 + \log{(N_p)}))}{N_p}}$, onde $C_c$ é uma constante que
@@ -312,7 +313,7 @@ feito um {\tt broadcast}.
 \textbf{Input:} O bloco $B$ do processo atual\\
 \textbf{Resultado:} A matriz de distâncias mais curtas $B'$ do bloco atual\\
 \renewcommand{\arraystretch}{1.0}
-\label{alg:alg1}
+\label{alg:alg2}
 \begin{algorithmic}[1]
 \State $B' \leftarrow $ {\tt new Matrix} \Comment{$B'$ inicialmente tem todas as entradas iguais a $\infty$}
 \State $B^e \leftarrow B_{rc}$ \Comment{$r$ e $c$ são as linha e coluna do processo atual na matriz de blocos}
@@ -330,6 +331,108 @@ feito um {\tt broadcast}.
 \end{algorithm}
 
 \subsection{Algoritmo de \textit{Floyd-Warshall} sequencial}
+O algoritmo de \textit{Floyd-Warshall} usa programação dinâmica para
+aproveitar resultados de maneira a diminuir o número de operações a
+fazer. A ideia é, usando as observações indicadas nas subsecções
+anteriores, de percorrer a matriz de adjacência da melhor forma.
+
+Denotamos $D'^k$ como a matriz de distâncias mais curtas que apenas
+considera caminhos com nós intermédios (ou seja, excluindo os
+extremos) no conjunto $[1, k]$. O objetivo será calcular $D'^n$ (sendo
+$n = |V|$) e temos que $D'^0$ é definido pela matriz de
+adjacência. Sabendo $D'^{k - 1}$ é possível determinar $D'^k$
+considerando $k$ como nó intermédio para todos os caminhos, ou seja,
+$D'^k_{ij} = \min{(D'^{k - 1}_{ij}, D'^{k - 1}_{ik} + D'^{k -
+    1}_{kj})}$. Sendo assim, é possível calcular $D'^n$ aplicando este
+método $n$ vezes, considerando todos os vértices possíveis como $k$.
+
+Os parágrafos anteriores estão sumarizados no Algoritmo~\ref{alg:alg3}.
+
+A complexidade deste algoritmo é $\BigO{|V|^3}$, pois para cada
+vértice é preciso percorrer a matriz de distâncias.
+
+\begin{algorithm}[t]
+\small
+\caption{O algoritmo de \textit{Floyd-Warshall}}
+\renewcommand{\arraystretch}{0.85}
+\textbf{Input:} A matriz de adjacência $A$ de um grafo\\
+\textbf{Resultado:} A matriz de distâncias mais curtas $C$ de um grafo\\
+\renewcommand{\arraystretch}{1.0}
+\label{alg:alg3}
+\begin{algorithmic}[1]
+\State $C \leftarrow A$
+\ForAll{$k \in V$}
+  \ForAll{$i \in V$}
+    \ForAll{$j \in V$}
+      \State $C_{ij} = \min{(C_{ij}, C_{ik} + C_{kj})}$
+    \EndFor
+  \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Algoritmo de \textit{Floyd-Warshall} paralelo}
+Descrevemos agora uma possível paralelização do algoritmo sequencial
+descrito na subsecção anterior. O objetivo é estaticamente dividir a
+matriz de adjacência em ``tiras'' de $\frac{|V|}{N_p}$ linhas da
+matriz (se $|V|$ não for divisível, alguns processadores terão menos
+uma linha). Um exemplo representativo desta divisão está ilustrado na
+Tabela~\ref{tbl:tbl2}.
+
+Dada esta divisão, o algoritmo paralelo consiste em cada processo
+calcular o resultado para a sua tira. Olhando para o algoritmo
+sequencial, para cada iteração é necessário fazer uma operação do
+tipo: $C_{ij} = \min{(C_{ij}, C_{ik} + C_{kj})}$. Cada processo contém
+o valor de $C_{ij}$ (pois só calcula valores que estejam na sua tira)
+e o valor de $C_{ik}$, pois pertence à mesma linha do valor a
+calcular, logo o único valor que é potencialmente desconhecido é
+$C_{kj}$. Sendo assim, em cada iteração é feito um {\tt broadcast} da
+linha $k$ (que estará contida na tira de um dos processos) e será
+usada para executar a operação acima descrita.
+
+Os parágrafos anteriores estão sumarizados no Algoritmo~\ref{alg:alg3}.
+
+A complexidade deste algoritmo é $\BigO{\frac{|V|^3 + C_c |V|^2
+    \log{(N_p)}}{N_p}}$, onde o fator $\frac{|V|^3}{N_p}$ advém do
+cálculo de cada tira, e o fator $\frac{C_c |V|^2 \log{(N_p)}}{N_p}$ vem
+do {\tt broadcast} efetuado $|V|$ vezes de uma linha com $|V|$ valores
+por todos os processos.
+
+\begin{table}[t]
+  \centering
+  \caption{Esquema de partição de uma matriz de adjacência $A$ de $6 \times 6$}
+  \label{tbl:tbl2}
+  \begin{tabular}{|c|c|c|c|c|c|c|}
+    \hline
+    \multirow{2}{*}{Processo 1} & $A_{11}$ & $A_{12}$ & $A_{13}$ & $A_{14}$ & $A_{15}$ & $A_{16}$ \\ \cline{2-7}
+    & $A_{21}$ & $A_{22}$ & $A_{23}$ & $A_{24}$ & $A_{25}$ & $A_{26}$ \\ \hline \hline
+    \multirow{2}{*}{Processo 2} & $A_{31}$ & $A_{32}$ & $A_{33}$ & $A_{34}$ & $A_{35}$ & $A_{36}$ \\ \cline{2-7}
+    & $A_{41}$ & $A_{42}$ & $A_{43}$ & $A_{44}$ & $A_{45}$ & $A_{46}$ \\ \hline \hline
+    \multirow{2}{*}{Processo 3} & $A_{51}$ & $A_{52}$ & $A_{53}$ & $A_{54}$ & $A_{55}$ & $A_{56}$ \\ \cline{2-7}
+    & $A_{61}$ & $A_{62}$ & $A_{63}$ & $A_{64}$ & $A_{65}$ & $A_{66}$ \\ \hline
+  \end{tabular}
+\end{table}
+
+\begin{algorithm}[t]
+\small
+\caption{O algoritmo de \textit{Floyd-Warshall} paralelo}
+\renewcommand{\arraystretch}{0.85}
+\textbf{Input:} A tira $A'$ da matriz de adjacência $A$ de um grafo do processo atual\\
+\textbf{Resultado:} A tira $C$ da matriz de distâncias mais curtas de um grafo\\
+\renewcommand{\arraystretch}{1.0}
+\label{alg:alg3}
+\begin{algorithmic}[1]
+\State $C \leftarrow A'$
+\ForAll{$k \in V$}
+ \State $C^k \leftarrow $ {\tt broadcast} $(C_k)$
+  \ForAll{$i \in V'$}
+    \ForAll{$j \in V$}
+      \State $C_{ij} = \min{(C_{ij}, C_{ik} + C^k_{j})}$
+    \EndFor
+  \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
 
 %----------------------------------------------------------------------------------------
 %	SECTION 3
@@ -337,6 +440,42 @@ feito um {\tt broadcast}.
 
 \section{Resultados e discussão}
 \label{sec:res}
+Para testar a viabilidade e escalabilidade dos algoritmos discutidos
+na Secção~\ref{sec:ai}, foram efetuados uma série de testes práticos
+com \textit{inputs} diferentes. Os grafos usados como \textit{input}
+estão descritos na Tabela~\ref{tbl:tbl3}.
+
+Foram corridos os vários algoritmos com 1, 4, 9, 16 e 25 processos nas
+máquinas do laboratório 1, tendo sido desligada a opção de ligação por
+{\tt ssh} em árvore por razões técnicas. Os resultados obtidos estão
+descritos na Tabela~\ref{tbl:tbl4}.
+
+\begin{table}[t]
+  \small
+  \caption{Grafos usados nos testes}
+  \label{tbl:tbl3}
+  \centering
+  \begin{tabular}{|c|c|l|}
+    \hline
+    Grafo & $|V|$ & Tipo/Fonte \\ \hline \hline
+    {\tt Small}  &  300  & Dado no enunciado \\ \hline
+    {\tt Medium} &  900  & Gerada por um modelo $ER$ \\ \hline
+    {\tt Big}    &  1574 & Rede de voos \\ \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \caption{}
+  \begin{tabular}{|l|r|r|r|r|r|r|r|r|r|r|}
+    \hline
+    & Sequencial & 1 & \multicolumn{2}{c|}{4} & \multicolumn{2}{c|}{9} & \multicolumn{2}{c|}{16} & \multicolumn{2}{c|}{25} \\ \hline
+    & Tempo & Tempo & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup \\ \hline
+    {\tt Small} & 0.94 & 1.14 & 0.40 & 2.82 & 0.34 & 3.35 & 0.52 & 2.18 & 0.47 & 2.45 \\ \hline
+    {\tt Medium} & 16.10 & 16.52 & 6.64 & 2.49 & 4.35 & 3.80 & 5.42 & 3.05 & 4.66 & 3.55 \\ \hline
+    {\tt Big} & 487.71 & 518.18 & 71.79 & 7.22 & 29.89 & 17.34 & 25.96 & 19.96 & 20.33 & 25.49 \\ \hline
+  \end{tabular}
+  \label{}
+\end{table}
 
 %----------------------------------------------------------------------------------------
 %	SECTION 4

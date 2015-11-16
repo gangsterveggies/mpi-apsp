@@ -87,13 +87,14 @@ e apresentadas algumas notas finais.
 Nesta secção estudaremos dois algoritmos conhecidos para o problema em
 questão assim como uma possível paralelização para cada um. O primeiro
 algoritmo é baseado numa variante de multiplicação de matrizes que é
-aplicada várias vezes à matriz de adjacência do grafo. O segundo,
-conhecido como o algoritmo de \textit{Floyd-Warshall}, usa a
-subestrutura ótima do problema para percorrer e atualizar a matriz de
-adjacência de forma eficiente. O segundo algoritmo tem uma
-complexidade temporal inferior ao primeiro, mas a versão paralela do
-primeiro permite escalar melhor a solução devido a necessitar de menos
-comunicação entre processos.
+aplicada várias vezes à matriz de adjacência do grafo
+\cite{shimbel1953structural}. O segundo, conhecido como o algoritmo de
+\textit{Floyd-Warshall} \cite{floyd1962algorithm}, usa a subestrutura
+ótima do problema para percorrer e atualizar a matriz de adjacência de
+forma eficiente. O segundo algoritmo tem uma complexidade temporal
+inferior ao primeiro, mas a versão paralela do primeiro permite
+escalar melhor a solução devido a necessitar de menos comunicação
+entre processos.
 
 \subsection{Algoritmo de multiplicação de matrizes sequencial}
 O primeiro algoritmo a considerar é, como já indicado, um algoritmo
@@ -174,13 +175,14 @@ os pares de caminhos mais curtos continua em aberto.
 \subsection{Algoritmo de multiplicação de matrizes paralelo}
 Iremos agora descrever uma possível paralelização deste algoritmo
 baseada num algoritmo que paraleliza multiplicação de matrizes
-conhecido por algoritmo de \textit{Fox}. Este algoritmo consiste em
-aplicar uma decomposição da matriz de adjacência original $A$ em
-blocos quadrados $B$ para serem atribuídos a um processo. Um exemplo
-representativo desta decomposição esta esquematizado na
-Tabela~\ref{tbl:tbl1}. Denotaremos as matrizes $B_{ij}$ por blocos e a
-matriz de matrizes $B$ por matriz de blocos. Usaremos a notação $ij$
-para denotar o processo que contém o bloco $B_{ij}$.
+conhecido por algoritmo de \textit{Fox} \cite{fox1987matrix}. Este
+algoritmo consiste em aplicar uma decomposição da matriz de adjacência
+original $A$ em blocos quadrados $B$ para serem atribuídos a um
+processo. Um exemplo representativo desta decomposição esta
+esquematizado na Tabela~\ref{tbl:tbl1}. Denotaremos as matrizes
+$B_{ij}$ por blocos e a matriz de matrizes $B$ por matriz de
+blocos. Usaremos a notação $ij$ para denotar o processo que contém o
+bloco $B_{ij}$.
 
 Com esta decomposição da matriz, a multiplicação da matriz é também
 decomposta da seguinte forma: $B'_{ij} = \sum_k{B_{ik} \cdot B_{kj}}$,
@@ -413,12 +415,12 @@ por todos os processos.
   \end{tabular}
 \end{table}
 
-\begin{algorithm}[t]
+\begin{algorithm}[b]
 \small
 \caption{O algoritmo de \textit{Floyd-Warshall} paralelo}
 \renewcommand{\arraystretch}{0.85}
-\textbf{Input:} A tira $A'$ da matriz de adjacência $A$ de um grafo do processo atual\\
-\textbf{Resultado:} A tira $C$ da matriz de distâncias mais curtas de um grafo\\
+\textbf{Input:} A tira $A'$ da matriz de adjacência $A$ do processo atual\\
+\textbf{Resultado:} A tira $C$ da matriz de distâncias mais curtas do processo atual\\
 \renewcommand{\arraystretch}{1.0}
 \label{alg:alg3}
 \begin{algorithmic}[1]
@@ -447,8 +449,33 @@ estão descritos na Tabela~\ref{tbl:tbl3}.
 
 Foram corridos os vários algoritmos com 1, 4, 9, 16 e 25 processos nas
 máquinas do laboratório 1, tendo sido desligada a opção de ligação por
-{\tt ssh} em árvore por razões técnicas. Os resultados obtidos estão
-descritos na Tabela~\ref{tbl:tbl4}.
+{\tt ssh} em árvore por razões técnicas. Os resultados obtidos para o
+algoritmo por multiplicação de matrizes estão descritos na
+Tabela~\ref{tbl:tbl4} e os para o algoritmo de \textit{Floyd-Warshall}
+na Tabela~\ref{tbl:tbl5}.
+
+É possível observar que o algoritmo por multiplicação de matrizes,
+apesar de ser sempre mais lento do que o \textit{Floyd-Warshall},
+escala muito melhor. Há várias razões possíveis que contribuem para
+este facto. Primeiro, é importante observar que o peso da comunicação
+entre processos (seja por {\tt sendrecv} ou por {\tt broadcast}) é um
+\textit{bottleneck} muito importante nesta computação. Adicionalmente,
+com o aumento do número de processos a executar aumenta também o peso
+da comunicação pois é necessário uma maior troca de mensagens, algo
+que está evidente na complexidade obtida na Secção~\ref{sec:ai} (nos
+fatores que contêm a constante $C_c$). Postulamos que pelo facto da
+computação tenha sido corrida sem ligação {\tt ssh} em árvore que as
+mensagens trocadas tenham de passar pelo processo \textit{master} e
+que isso agravou os problemas de escalabilidade para números elevados
+de processos. A diferença entre a escalabilidade dos dois algoritmos
+também pode ser explicada pelo facto de que o fator constante
+associado ao peso da comunicação ser maior no caso do
+\textit{Floyd-Warshall}.
+
+Dito isto, no grafo {\tt Big}, onde o número de nós era elevado, o
+peso da computação dominou o da comunicação no caso do algoritmo por
+multiplicação de matrizes e por isso obtivemos um \textit{speedup}
+aproximadamente linear para este caso.
 
 \begin{table}[t]
   \small
@@ -458,24 +485,38 @@ descritos na Tabela~\ref{tbl:tbl4}.
   \begin{tabular}{|c|c|l|}
     \hline
     Grafo & $|V|$ & Tipo/Fonte \\ \hline \hline
-    {\tt Small}  &  300  & Dado no enunciado \\ \hline
-    {\tt Medium} &  900  & Gerada por um modelo $ER$ \\ \hline
-    {\tt Big}    &  1574 & Rede de voos \\ \hline
+    {\tt Small}  &  300  & Grafo dado no enunciado \\ \hline
+    {\tt Medium} &  900  & Grafo gerado por um modelo \textit{Erdős–Rényi} \\ \hline
+    {\tt Big}    &  1574 & Grafo de voos entre aeroportos dos USA \cite{opsahl2011anchorage} \\ \hline
   \end{tabular}
 \end{table}
 
 \begin{table}[t]
-  \caption{}
+  \caption{Resultados para o algoritmo por multiplicação de matrizes}
+  \label{tbl:tbl4}
   \begin{tabular}{|l|r|r|r|r|r|r|r|r|r|r|}
     \hline
-    & Sequencial & 1 & \multicolumn{2}{c|}{4} & \multicolumn{2}{c|}{9} & \multicolumn{2}{c|}{16} & \multicolumn{2}{c|}{25} \\ \hline
+    & Sequencial & 1 & \multicolumn{2}{c|}{4} & \multicolumn{2}{c|}{9} & \multicolumn{2}{c|}{16} & \multicolumn{2}{c|}{25} \\ \cline{2-11}
     & Tempo & Tempo & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup \\ \hline
     {\tt Small} & 0.94 & 1.14 & 0.40 & 2.82 & 0.34 & 3.35 & 0.52 & 2.18 & 0.47 & 2.45 \\ \hline
     {\tt Medium} & 16.10 & 16.52 & 6.64 & 2.49 & 4.35 & 3.80 & 5.42 & 3.05 & 4.66 & 3.55 \\ \hline
     {\tt Big} & 487.71 & 518.18 & 71.79 & 7.22 & 29.89 & 17.34 & 25.96 & 19.96 & 20.33 & 25.49 \\ \hline
   \end{tabular}
-  \label{}
 \end{table}
+
+\begin{table}[b]
+  \caption{Resultados para o algoritmo de \textit{Floyd-Warshall}}
+  \label{tbl:tbl5}
+  \begin{tabular}{|l|r|r|r|r|r|r|r|r|r|r|}
+    \hline
+    & Sequencial & 1 & \multicolumn{2}{c|}{4} & \multicolumn{2}{c|}{9} & \multicolumn{2}{c|}{16} & \multicolumn{2}{c|}{25} \\ \cline{2-11}
+    & Tempo & Tempo & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup & Tempo & Speedup \\ \hline
+    {\tt Small} & 0.10 & 0.28 & 0.11 & 2.52 & 0.19 & 1.48 & 0.27 & 1.04 & 0.37 & 0.77 \\ \hline
+    {\tt Medium} & 1.98 & 6.54 & 2.33 & 2.81 & 1.42 & 4.59 & 1.66 & 3.93 & 1.79 & 3.65 \\ \hline
+    {\tt Big} & 14.19 & 38.65 & 12.17 & 3.18 & 6.84 & 5.66 & 4.98 & 7.76 & 5.43 & 7.12 \\ \hline
+  \end{tabular}
+\end{table}
+
 
 %----------------------------------------------------------------------------------------
 %	SECTION 4
@@ -483,8 +524,17 @@ descritos na Tabela~\ref{tbl:tbl4}.
 
 \section{Conclusão e notas finais}
 \label{sec:con}
+Neste trabalho explorámos diferentes algoritmos e respetivas versões
+paralelas para o problema do \textit{All-Pairs Shortest Paths}, um
+conhecido problema de caminhos mais curtos. Além disso, implementámos
+cada um em {\tt C++} usando a biblioteca {\tt OpenMPI} para ter um
+código distribuído no qual efetuámos vários testes com grafos de
+naturezas e tamanhos diferentes.
 
-\cite{shimbel1953structural}
+Apesar de termo obtido escalabilidade quase linear num dos casos, o
+peso da comunicação entre processos acabou por ser um fator limitante
+nos restantes, ainda que se tenham obtido \textit{speedups}
+consideráveis na maior parte dos casos.
 
 \bibliographystyle{plain}
 \bibliography{report}

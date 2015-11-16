@@ -67,25 +67,25 @@ void SeqFloyd::APSP(int print_result, int print_time)
   int global_Rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &global_Rank);
 
-  if (global_Rank == 0)
+  if (global_Rank == MASTER)
+  {
     printf("Running using sequential Floyd-Warshall\n");
+    read_Input();
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   start = MPI_Wtime();
 
-  if (global_Rank == 0)
-  {
-    read_Input();
+  if (global_Rank == MASTER)
     calculate_APSP();
-  }
 
   MPI_Barrier(MPI_COMM_WORLD);
   finish = MPI_Wtime();
 
-  if (print_result && global_Rank == 0)
+  if (print_result && global_Rank == MASTER)
     print_Result();
 
-  if (print_time && global_Rank == 0)
+  if (print_time && global_Rank == MASTER)
     printf("Execution time: %0.3lf seconds\n", finish - start);
 }
 

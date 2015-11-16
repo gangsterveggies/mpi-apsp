@@ -161,13 +161,14 @@ void Floyd::APSP(int print_result, int print_time)
   MPI_Comm_size(MPI_COMM_WORLD, &num_Proc);
   MPI_Comm_rank(MPI_COMM_WORLD, &global_Rank);
 
-  if (global_Rank == 0)
+  if (global_Rank == MASTER)
     printf("Running using parallel Floyd with %d processes\n", num_Proc);
+
+  read_Input();
 
   MPI_Barrier(MPI_COMM_WORLD);
   start = MPI_Wtime();
 
-  read_Input();
   setup_Grid();
   distribute_Input();
   calculate_APSP();
@@ -179,6 +180,6 @@ void Floyd::APSP(int print_result, int print_time)
   if (print_result)
     print_Result();
 
-  if (print_time && global_Rank == 0)
+  if (print_time && global_Rank == MASTER)
     printf("Execution time: %0.3lf seconds\n", finish - start);
 }
